@@ -280,6 +280,7 @@ mtc.model.comparisons <- function(model) {
 mtc.run <- function(model, sampler=NA, n.adapt=5000, n.iter=20000, thin=1) {
 	bugs <- c('BRugs', 'R2WinBUGS')
 	jags <- c('rjags')
+	biips <- c('RBiips')
 	available <- if (is.na(sampler)) {
 		c(jags, bugs, 'YADAS')
 	} else if (sampler == 'BUGS') {
@@ -314,7 +315,12 @@ mtc.run <- function(model, sampler=NA, n.adapt=5000, n.iter=20000, thin=1) {
 		mtc.run.bugs(model, package=sampler, n.adapt=n.adapt, n.iter=n.iter, thin=thin)
 	} else if (sampler %in% jags) {
 		mtc.run.jags(model, package=sampler, n.adapt=n.adapt, n.iter=n.iter, thin=thin)
+	} else if (sampler %in% jags) {
+		mtc.run.jags(model, package=sampler, n.adapt=n.adapt, n.iter=n.iter, thin=thin)
+	} else if (sampler %in% biips) {
+		mtc.run.biips(model, package=sampler, n.adapt=n.adapt, n.iter=n.iter, thin=thin)
 	}
+
 
 	result <- list(
 		samples=samples,
@@ -464,6 +470,24 @@ mtc.run.jags <- function (model, package, n.adapt=n.adapt, n.iter=n.iter, thin=t
 	# run JAGS model
 	coda.samples(jags, variable.names=syntax$vars, n.iter=n.iter, thin=thin)
 }
+
+mtc.run.biips <- function (model, package, n.adapt=n.adapt, n.iter=n.iter, thin=thin) {
+	# generate JAGS model
+	syntax <- mtc.build.syntaxModel(model, is.jags=FALSE)
+
+	# compile JAGS model
+	file.model <- tempfile()
+	cat(paste(syntax$model, "\n", collapse=""), file=file.model)
+	biips <- biips.model(file.model, data=syntax$data)
+	unlink(file.model)
+
+	# run JAGS model
+	get.samples <- pmmh.samples(biips, variable.names=syntax$vars, n.iter=n.iter, thin=thin, n.part=100)
+
+	as.mcmc.list(mcmc(get.samples))
+}
+
+
 
 # Semi-internal utility for loading samples from previous simulations
 # Samples that can be loaded were saved using dput
